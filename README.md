@@ -19,6 +19,58 @@ de clés USB provenant de l’extérieur.
 - Rapport horodaté
 - Sécurisation conforme aux recommandations ANSSI
 
+
+                                            ┌───────────────────────────────┐
+                                            │        Clé USB externe        │
+                                            │  (support provenant extérieur)│
+                                            └───────────────┬───────────────┘
+                                                            │
+                                                            │ Montage sécurisé (lecture seule)
+                                                            │ ro / nosuid / nodev / noexec
+                                                            ▼
+                                            ┌───────────────────────────────┐
+                                            │ /opt/station-blanche/mount    │
+                                            │  Contenu de la clé USB        │
+                                            └───────────────┬───────────────┘
+                                                            │
+                                                            │ Orchestration
+                                                            ▼
+                                            ┌───────────────────────────────┐
+                                            │         scan_usb.sh           │
+                                            │  Script principal             │
+                                            └───────────────┬───────────────┘
+                                                            │
+                                                 ┌──────────┴───────────┐
+                                                 │                      │
+                                                 ▼                      ▼
+                                            ┌───────────────┐    ┌───────────────┐
+                                            │  Analyse      │    │  Analyse      │
+                                            │  ClamAV       │    │  YARA         │
+                                            │               │    │               │
+                                            │ clamav.log    │    │ yara.log      │
+                                            │ clamav.json   │    │ yara.json     │
+                                            └───────────────┘    └───────────────┘
+                                                 │                      │
+                                                 └──────────┬───────────┘
+                                                            ▼
+                                            ┌───────────────────────────────┐
+                                            │   Corrélation des résultats   │
+                                            │        correlate.py           │
+                                            │ → correlation.json            │
+                                            └───────────────┬───────────────┘
+                                                            │
+                                                    ┌───────┴────────┐
+                                                    │                │
+                                                    ▼                ▼
+                                            ┌───────────────┐  ┌────────────────┐
+                                            │ Quarantaine   │  │ Rapport HTML   │
+                                            │ /quarantine   │  │ /reports/      │
+                                            │ (fichiers     │  │ report_DATE    │
+                                            │ infectés)     │  │ .html          │
+                                            └───────────────┘  └────────────────┘
+
+
+
 ##  Outils utilisés
 - ClamAV
 - YARA (Yara_rules)
