@@ -1,7 +1,7 @@
 
 <h1 align="left">
   Station Blanche
-  <img src="icon/logo_station-blanche.png" alt="Logo" align="right" width="120"/>
+  <img src="icon/logo_station-blanche.png" alt="Logo" align="right" width="200"/>
 </h1>
 # Station-blanche
 
