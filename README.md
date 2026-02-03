@@ -1,32 +1,32 @@
 # Station-blanche
 
-# 🛡️ Station Blanche – Analyse de clés USB
+# Station Blanche – Analyse de clés USB
 
 Projet de station blanche sous Linux (Debian 13) permettant l’analyse sécurisée
 de clés USB provenant de l’extérieur.
 
-## 🎯 Objectif
+##  Objectifs
 - Détecter les virus et malwares
 - Utiliser ClamAV et YARA
 - Corréler les résultats
 - Générer un rapport HTML
 - Mettre en quarantaine les fichiers infectés
-- Fonctionner sur une station isolée (sans réseau)
+- Fonctionne sur une station isolée (filtrage par URL recommandé sur les Firewall)
 
-## 🧱 Architecture
+##  Architecture
 - Scan en lecture seule
 - Montage sécurisé (nosuid, nodev, noexec)
 - Quarantaine locale
 - Rapport horodaté
-- Approche conforme aux recommandations ANSSI
+- Sécurisation conforme aux recommandations ANSSI
 
-## 🧪 Outils utilisés
+##  Outils utilisés
 - ClamAV
-- YARA
+- YARA (Yara_rules)
 - Python 3
 - Bash
 - Debian 13
 
-## 🚀 Utilisation
+##  Utilisation
 ```bash
 sudo scan_usb.sh /dev/sdX1
