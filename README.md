@@ -1,7 +1,8 @@
-<p align="center">
-  <img src="icon/logo_station-blanche.png" alt="Logo de l'outil" width="200"/>
-</p>
 
+<h1 align="left">
+  Station Blanche
+  <img src="icon/logo_station-blanche.png" alt="Logo" align="right" width="120"/>
+</h1>
 # Station-blanche
 
 # Station Blanche – Analyse de clés USB
