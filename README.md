@@ -80,11 +80,10 @@ de clés USB provenant de l’extérieur.
 
 ## Installation
 
- **Cloner le dépôt :**
 ```bash
  sudo git clone https://github.com/kuromasai/Station-blanche.git
 cd Station-blanche
 
-##  Utilisation
+## Utilisation
 ```bash
 sudo scan_usb.sh /dev/sdX1
