@@ -78,6 +78,13 @@ de clés USB provenant de l’extérieur.
 - Bash
 - Debian 13
 
+## Installation
+
+ **Cloner le dépôt :**
+```bash
+ sudo git clone https://github.com/kuromasai/Station-blanche.git
+cd Station-blanche
+
 ##  Utilisation
 ```bash
 sudo scan_usb.sh /dev/sdX1
