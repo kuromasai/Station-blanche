@@ -1,6 +1,3 @@
-<p align="left">
-  <img src="assets/logo_station-blanche.png" alt="Project logo" width="150"/>
-</p>
 
 # Station Blanche – Analyse de clés USB
 
