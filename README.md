@@ -1,10 +1,7 @@
 
 <h1 align="left">
-  Station Blanche
   <img src="icon/logo_station-blanche.png" alt="Logo" align="right" width="200"/>
 </h1>
-# Station-blanche
-
 # Station Blanche – Analyse de clés USB
 
 Projet de station blanche sous Linux (Debian 13) permettant l’analyse sécurisée
