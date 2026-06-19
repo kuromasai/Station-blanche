@@ -1,14 +1,22 @@
+#!/usr/bin/env python3
 import json
 
-files = json.load(open("/opt/station-blanche/logs/files.json"))
-clamav = json.load(open("/opt/station-blanche/logs/clamav.json"))
-yara = json.load(open("/opt/station-blanche/logs/yara.json"))
+LOGS = "/opt/station-blanche/logs"
+
+with open(f"{LOGS}/files.json") as f:
+    files = json.load(f)
+
+with open(f"{LOGS}/clamav.json") as f:
+    clamav = json.load(f)
+
+with open(f"{LOGS}/yara.json") as f:
+    yara = json.load(f)
 
 results = {}
 
-for f in files:
-    clam = clamav.get(f, "OK")
-    yar = yara.get(f, [])
+for filepath in files:
+    clam = clamav.get(filepath, "OK")
+    yar = yara.get(filepath, [])
 
     if clam != "OK":
         verdict = "INFECTED"
@@ -17,11 +25,15 @@ for f in files:
     else:
         verdict = "CLEAN"
 
-    results[f] = {
+    results[filepath] = {
         "clamav": clam,
         "yara": yar,
         "verdict": verdict
     }
 
-with open("/opt/station-blanche/logs/correlation.json", "w") as out:
-    json.dump(results, out, indent=2)
+with open(f"{LOGS}/correlation.json", "w") as f:
+    json.dump(results, f, indent=2)
+
+infected = sum(1 for v in results.values() if v["verdict"] == "INFECTED")
+suspicious = sum(1 for v in results.values() if v["verdict"] == "SUSPICIOUS")
+print(f"[+] Corrélation terminée : {infected} infecté(s), {suspicious} suspect(s)")
