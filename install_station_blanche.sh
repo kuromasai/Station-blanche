@@ -24,7 +24,7 @@ fi
 #################################
 BASE="/opt/station-blanche"
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-SOURCE_DIR="$REPO_DIR/station-blanche"
+SOURCE_DIR="$REPO_DIR/Station-blanche"
 
 #################################
 # Vérification source
