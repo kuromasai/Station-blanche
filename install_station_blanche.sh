@@ -41,17 +41,21 @@ echo "[+] Mise à jour système"
 apt update && apt upgrade -y
 
 #################################
-# Installation dépendances
+# Installation dépendances système
 #################################
 echo "[+] Installation des dépendances"
 apt install -y \
   clamav clamav-daemon \
   yara \
   python3 python3-pip \
+  python3-pyqt5 \
+  python3-pyqt5.qtwebengine \
+  libxcb-xinerama0 \
+  libxcb-cursor0 \
   rsync
 
 #################################
-# Dépendances Python
+# Dépendances Python (pip)
 #################################
 if [ -f "$SOURCE_DIR/requirements.txt" ]; then
   echo "[+] Installation des dépendances Python"
@@ -90,9 +94,9 @@ chown -R root:root "$BASE"
 chmod -R 750 "$BASE"
 
 # chmod +x uniquement sur les .sh
-find "$BASE/bin/" -name "*.sh" -exec chmod +x {} \;
+find "$BASE/bin/" -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
 
-# chmod +x sur les .py uniquement s'ils ont un shebang
+# chmod +x sur les .py avec shebang
 for f in "$BASE/bin/"*.py; do
   [ -f "$f" ] || continue
   if head -1 "$f" | grep -q "^#!"; then
@@ -112,4 +116,7 @@ chmod 750 "$BASE/mount" "$BASE/reports"
 echo ""
 echo "[✓] Installation terminée"
 echo "[✓] Station Blanche installée dans $BASE"
-echo "[✓] Script principal : $BASE/bin/scan_usb.sh"
+echo "[✓] Script principal : $BASE/bin/station_blanche.py"
+echo ""
+echo "[i] Pour lancer depuis la session bureau :"
+echo "    sudo DISPLAY=\$DISPLAY XAUTHORITY=\$XAUTHORITY python3 $BASE/bin/station_blanche.py"
