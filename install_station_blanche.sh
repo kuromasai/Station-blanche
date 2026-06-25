@@ -1,42 +1,36 @@
 #!/bin/bash
 set -e
 
-echo "[+] Installation Station Blanche – Debian 13 / GNOME"
+echo "[+] Installation Station Blanche – Debian 13"
 
 #################################
 # Vérification root
 #################################
 if [ "$EUID" -ne 0 ]; then
-  echo "[-] Ce script doit être exécuté en root (sudo ./install_station_blanche.sh)"
+  echo "[-] Ce script doit être exécuté en root"
   exit 1
 fi
 
 #################################
 # Vérification OS
 #################################
-if ! grep -q 'VERSION_ID="13"' /etc/os-release 2>/dev/null; then
-  echo "[!] Attention : ce script est prévu pour Debian 13"
-  read -rp "    Continuer quand même ? (o/N) " confirm
-  [[ "$confirm" =~ ^[oO]$ ]] || exit 1
+if ! grep -q 'VERSION_ID="13"' /etc/os-release; then
+  echo "[-] Ce script est prévu pour Debian 13 uniquement"
+  exit 1
 fi
 
 #################################
 # Variables
 #################################
 BASE="/opt/station-blanche"
-REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-SOURCE_DIR="$REPO_DIR"
-APP_SCRIPT="station_blanche.py"
-ICON_FILE="assets/icon.png"
-DESKTOP_FILE="station-blanche.desktop"
-APP_NAME="Station Blanche"
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SOURCE_DIR="$REPO_DIR/Station-blanche"
 
 #################################
 # Vérification source
 #################################
-if [ ! -f "$SOURCE_DIR/$APP_SCRIPT" ]; then
-  echo "[-] Fichier principal introuvable : $SOURCE_DIR/$APP_SCRIPT"
-  echo "    Lance ce script depuis la racine du projet."
+if [ ! -d "$SOURCE_DIR" ]; then
+  echo "[-] Dossier source introuvable : $SOURCE_DIR"
   exit 1
 fi
 
@@ -47,51 +41,44 @@ echo "[+] Mise à jour système"
 apt update && apt upgrade -y
 
 #################################
-# Installation dépendances système
+# Installation dépendances
 #################################
-echo "[+] Installation des dépendances système"
+echo "[+] Installation des dépendances"
 apt install -y \
   clamav clamav-daemon \
   yara \
   python3 python3-pip \
-  python3-pyqt6 \
-  rsync \
-  udev
+  rsync
 
 #################################
 # Dépendances Python
 #################################
 if [ -f "$SOURCE_DIR/requirements.txt" ]; then
-  echo "[+] Installation des dépendances Python (requirements.txt)"
+  echo "[+] Installation des dépendances Python"
   pip3 install --break-system-packages -r "$SOURCE_DIR/requirements.txt"
 else
-  echo "[+] Installation des dépendances Python (fallback)"
-  pip3 install --break-system-packages PyQt6 yara-python
+  echo "[!] Aucun requirements.txt trouvé – pip3 non utilisé"
 fi
 
 #################################
 # Mise à jour signatures ClamAV
 #################################
-echo "[+] Mise à jour des signatures ClamAV"
-systemctl stop clamav-freshclam 2>/dev/null || true
+echo "[+] Mise à jour ClamAV"
+systemctl stop clamav-freshclam || true
 freshclam
-systemctl enable --now clamav-freshclam 2>/dev/null || true
-systemctl enable --now clamav-daemon 2>/dev/null || true
+systemctl start clamav-freshclam || true
 
 #################################
-# Déploiement dans /opt
+# Déploiement Station Blanche
 #################################
 echo "[+] Déploiement vers $BASE"
 if [ -d "$BASE" ]; then
-  echo "[!] $BASE existe déjà – mise à jour"
+  echo "[!] $BASE existe déjà – mise à jour du contenu"
 else
   mkdir -p "$BASE"
 fi
 
 rsync -a --delete \
-  --exclude='.git' \
-  --exclude='__pycache__' \
-  --exclude='*.pyc' \
   "$SOURCE_DIR/" \
   "$BASE/"
 
@@ -101,10 +88,17 @@ rsync -a --delete \
 echo "[+] Application des permissions"
 chown -R root:root "$BASE"
 chmod -R 750 "$BASE"
-chmod +x "$BASE/$APP_SCRIPT"
 
-# Assets lisibles par tous (icône)
-[ -d "$BASE/assets" ] && chmod -R 755 "$BASE/assets"
+# chmod +x uniquement sur les .sh
+find "$BASE/bin/" -name "*.sh" -exec chmod +x {} \;
+
+# chmod +x sur les .py uniquement s'ils ont un shebang
+for f in "$BASE/bin/"*.py; do
+  [ -f "$f" ] || continue
+  if head -1 "$f" | grep -q "^#!"; then
+    chmod +x "$f"
+  fi
+done
 
 #################################
 # Création dossiers runtime
@@ -115,71 +109,7 @@ chmod 700 "$BASE/logs" "$BASE/quarantine"
 chmod 750 "$BASE/mount" "$BASE/reports"
 
 #################################
-# Règle udev (détection USB auto)
-#################################
-echo "[+] Installation de la règle udev"
-cat > /etc/udev/rules.d/99-station-blanche.rules << 'EOF'
-ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", \
-  RUN+="/usr/bin/python3 /opt/station-blanche/station_blanche.py"
-EOF
-udevadm control --reload-rules 2>/dev/null || true
-
-#################################
-# Lanceur GNOME (.desktop)
-# Installé pour l'utilisateur qui a lancé sudo
-#################################
-REAL_USER="${SUDO_USER:-$USER}"
-REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
-
-echo "[+] Création du lanceur GNOME pour $REAL_USER"
-
-# Déterminer le chemin de l'icône
-ICON_PATH="$BASE/$ICON_FILE"
-if [ ! -f "$ICON_PATH" ]; then
-  echo "[!] Icône introuvable ($ICON_PATH) – icône système utilisée"
-  ICON_PATH="utilities-terminal"
-fi
-
-APPS_DIR="$REAL_HOME/.local/share/applications"
-mkdir -p "$APPS_DIR"
-
-cat > "$APPS_DIR/$DESKTOP_FILE" << EOF
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=$APP_NAME
-Comment=Station de décontamination USB
-Exec=/usr/bin/python3 $BASE/$APP_SCRIPT
-Icon=$ICON_PATH
-Terminal=false
-Categories=Utility;Security;
-StartupNotify=true
-EOF
-
-chown "$REAL_USER:$REAL_USER" "$APPS_DIR/$DESKTOP_FILE"
-chmod +x "$APPS_DIR/$DESKTOP_FILE"
-
-# Copie sur le bureau (FR et EN)
-for BUREAU in "$REAL_HOME/Bureau" "$REAL_HOME/Desktop"; do
-  if [ -d "$BUREAU" ]; then
-    cp "$APPS_DIR/$DESKTOP_FILE" "$BUREAU/$DESKTOP_FILE"
-    chown "$REAL_USER:$REAL_USER" "$BUREAU/$DESKTOP_FILE"
-    chmod +x "$BUREAU/$DESKTOP_FILE"
-    # Marquer comme approuvé GNOME (évite le warning "untrusted")
-    sudo -u "$REAL_USER" gio set "$BUREAU/$DESKTOP_FILE" metadata::trusted true 2>/dev/null || true
-    echo "[+] Icône ajoutée sur le bureau : $BUREAU"
-    break
-  fi
-done
-
-# Rafraîchir la base des applications
-sudo -u "$REAL_USER" update-desktop-database "$APPS_DIR" 2>/dev/null || true
-
-#################################
 echo ""
 echo "[✓] Installation terminée"
-echo "[✓] Station Blanche installée dans : $BASE"
-echo "[✓] Application principale       : $BASE/$APP_SCRIPT"
-echo "[✓] Lanceur bureau créé pour     : $REAL_USER"
-echo ""
-echo "    Double-clic sur l'icône 'Station Blanche' pour démarrer."
+echo "[✓] Station Blanche installée dans $BASE"
+echo "[✓] Script principal : $BASE/bin/scan_usb.sh"
