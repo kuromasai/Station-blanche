@@ -7,6 +7,13 @@ BIN="$BASE/bin"
 
 USB_DEV="$1"
 
+# Récupération de l'utilisateur réel derrière sudo (pour ouvrir le rapport dans sa session)
+REAL_USER="${SUDO_USER:-$USER}"
+REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
+REAL_DISPLAY=$(sudo -u "$REAL_USER" printenv DISPLAY 2>/dev/null || echo ":0")
+REAL_XAUTHORITY="$REAL_HOME/.Xauthority"
+export REAL_USER REAL_HOME REAL_DISPLAY REAL_XAUTHORITY
+
 # Vérification argument
 if [ -z "$USB_DEV" ]; then
     echo "[-] Usage: $0 /dev/sdX1"
@@ -110,7 +117,8 @@ echo "[+] Quarantaine"
 python3 "$BIN/quarantine.py" || { echo "[-] Erreur quarantine.py"; exit 1; }
 
 echo "[+] Génération du rapport"
-python3 "$BIN/generate_report.py" || { echo "[-] Erreur generate_report.py"; exit 1; }
+REAL_USER="$REAL_USER" REAL_HOME="$REAL_HOME" REAL_DISPLAY="$REAL_DISPLAY" REAL_XAUTHORITY="$REAL_XAUTHORITY" \
+    python3 "$BIN/generate_report.py" || { echo "[-] Erreur generate_report.py"; exit 1; }
 
 echo ""
 echo "[✓] Scan terminé – rapport disponible dans $BASE/reports/"

@@ -140,4 +140,25 @@ with open(path, "w") as f:
     f.write(html_content)
 
 print(f"[✓] Rapport généré : {path}")
-subprocess.run(["xdg-open", path])
+
+# Ouverture du rapport dans la session graphique de l'utilisateur réel (pas root)
+real_user = os.environ.get("REAL_USER", "")
+real_display = os.environ.get("REAL_DISPLAY", ":0")
+real_xauthority = os.environ.get("REAL_XAUTHORITY", "")
+
+if real_user and real_user != "root":
+    env = os.environ.copy()
+    env["DISPLAY"] = real_display
+    env["XAUTHORITY"] = real_xauthority
+    result = subprocess.run(
+        ["sudo", "-u", real_user, "env",
+         f"DISPLAY={real_display}",
+         f"XAUTHORITY={real_xauthority}",
+         "xdg-open", path],
+        env=env
+    )
+    if result.returncode != 0:
+        print(f"[!] Impossible d'ouvrir le rapport automatiquement : {path}")
+else:
+    # Fallback : lancé directement en root sans sudo, on tente quand même
+    subprocess.run(["xdg-open", path])
