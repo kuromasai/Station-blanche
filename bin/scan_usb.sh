@@ -1,10 +1,8 @@
 #!/bin/bash
-
 BASE="/opt/station-blanche"
 MOUNT="$BASE/mount"
 LOGS="$BASE/logs"
 BIN="$BASE/bin"
-
 USB_DEV="$1"
 
 # Récupération de l'utilisateur réel derrière sudo (pour ouvrir le rapport dans sa session)
@@ -26,18 +24,18 @@ if [ ! -b "$USB_DEV" ]; then
     exit 1
 fi
 
-# FIX 5 : Vérification de la présence de tous les scripts Python avant de commencer
+# Vérification de la présence de tous les scripts Python avant de commencer
 for script in list_files parse_clamav parse_yara correlate quarantine generate_report; do
     [ -f "$BIN/${script}.py" ] || { echo "[-] Script manquant : ${script}.py"; exit 1; }
 done
 
-# FIX 1 : mkdir -p avec vérification explicite avant le nettoyage des logs
+# mkdir -p avec vérification explicite avant le nettoyage des logs
 mkdir -p "$LOGS" "$MOUNT" || { echo "[-] Impossible de créer les répertoires nécessaires"; exit 1; }
 
-# Nettoyage des logs précédents (après mkdir garanti)
+# Nettoyage des logs précédents
 rm -f "$LOGS"/*.json "$LOGS"/*.log
 
-# Démontage garanti à la fin (même en cas d'erreur) — posé AVANT le mount
+# Démontage garanti à la fin (même en cas d'erreur)
 cleanup() {
     if mountpoint -q "$MOUNT" 2>/dev/null; then
         echo "[+] Démontage de $MOUNT"
@@ -58,7 +56,7 @@ if [ -n "$EXISTING_MOUNT" ]; then
     }
 fi
 
-# FIX 4 : Vérifier que $MOUNT existe ET est non vide avant de tenter umount
+# Vérifier que $MOUNT est non vide avant de tenter umount
 if [ -d "$MOUNT" ] && [ -n "$(ls -A "$MOUNT" 2>/dev/null)" ]; then
     echo "[!] $MOUNT n'est pas vide, tentative de démontage..."
     umount "$MOUNT" 2>/dev/null || true
@@ -73,30 +71,47 @@ echo "[+] Inventaire des fichiers"
 python3 "$BIN/list_files.py" || { echo "[-] Erreur list_files.py"; exit 1; }
 
 echo "[+] Scan ClamAV"
-# FIX 3 : --stdout pour forcer l'affichage des warnings ClamAV en temps réel
 clamscan -r --stdout "$MOUNT" --log="$LOGS/clamav.log"
 CLAM_EXIT=$?
-# FIX 6 : Sauvegarde du code de sortie ClamAV pour generate_report.py
 echo "$CLAM_EXIT" > "$LOGS/clamav.exitcode"
-# 0 = propre, 1 = virus trouvé, 2 = erreur
 if [ $CLAM_EXIT -eq 2 ]; then
     echo "[-] ClamAV a rencontré une erreur (code 2)"
     exit 1
 fi
 
 echo "[+] Scan YARA"
-# FIX 7 : Vérification de la présence d'au moins une règle .yar avant d'appeler YARA
-YARA_RULES=("$BASE/yara_rules"/*.yar)
-if [ ! -f "${YARA_RULES[0]}" ]; then
-    echo "[-] Aucune règle YARA trouvée dans $BASE/yara_rules/"
+
+# Construire un fichier index incluant toutes les règles .yar
+# en excluant les fichiers qui nécessitent des variables externes (LOKI/THOR)
+RULES_DIR="$BASE/yara_rules"
+EXCLUDED_LIST="$RULES_DIR/signature-base/yara/external-variable-rules.txt"
+INDEX_FILE=$(mktemp /tmp/yara_index_XXXXXX.yar)
+
+while IFS= read -r -d '' f; do
+    fname=$(basename "$f")
+    # Exclure les fichiers avec external variables si la liste existe
+    if [ -f "$EXCLUDED_LIST" ] && grep -qxF "$fname" "$EXCLUDED_LIST" 2>/dev/null; then
+        continue
+    fi
+    echo "include \"$f\"" >> "$INDEX_FILE"
+done < <(find "$RULES_DIR" -name "*.yar" -print0)
+
+RULES_COUNT=$(grep -c "include" "$INDEX_FILE" 2>/dev/null || echo 0)
+
+if [ "$RULES_COUNT" -eq 0 ]; then
+    echo "[-] Aucune règle YARA trouvée dans $RULES_DIR"
+    rm -f "$INDEX_FILE"
     exit 1
 fi
-yara -r "${YARA_RULES[@]}" "$MOUNT" > "$LOGS/yara.log" 2>&1
+
+echo "[+] $RULES_COUNT règles YARA chargées"
+
+yara "$INDEX_FILE" -r "$MOUNT" > "$LOGS/yara.log" 2>&1
 YARA_EXIT=$?
-# FIX 6 : Sauvegarde du code de sortie YARA pour generate_report.py
+rm -f "$INDEX_FILE"
+
 echo "$YARA_EXIT" > "$LOGS/yara.exitcode"
-# 0 = ok, 1 = match trouvé, autre = erreur
-# FIX 2 : Log explicite si YARA a trouvé des matches (code 1), sans bloquer
+
 if [ $YARA_EXIT -eq 1 ]; then
     echo "[!] YARA a trouvé des correspondances (code 1) — voir $LOGS/yara.log"
 elif [ $YARA_EXIT -gt 1 ]; then
