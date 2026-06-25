@@ -23,16 +23,16 @@ fi
 # Variables
 #################################
 BASE="/opt/station-blanche"
-REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-SOURCE_DIR="$REPO_DIR/Station-blanche"
+REPO_URL="https://github.com/kuromasai/Station-blanche.git"
+YARA_RULES_URL="https://github.com/Neo23x0/signature-base.git"
+TMP_DIR=$(mktemp -d /tmp/station-blanche-install-XXXXXX)
 
-#################################
-# Vérification source
-#################################
-if [ ! -d "$SOURCE_DIR" ]; then
-  echo "[-] Dossier source introuvable : $SOURCE_DIR"
-  exit 1
-fi
+# Nettoyage du dossier temporaire à la fin quoi qu'il arrive
+cleanup() {
+  echo "[+] Nettoyage du dossier temporaire"
+  rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT
 
 #################################
 # Mise à jour système
@@ -52,7 +52,15 @@ apt install -y \
   python3-pyqt5.qtwebengine \
   libxcb-xinerama0 \
   libxcb-cursor0 \
+  git \
   rsync
+
+#################################
+# Clone du repo Station Blanche
+#################################
+echo "[+] Clonage du repo Station Blanche"
+git clone "$REPO_URL" "$TMP_DIR/Station-blanche"
+SOURCE_DIR="$TMP_DIR/Station-blanche"
 
 #################################
 # Dépendances Python (pip)
@@ -83,8 +91,20 @@ else
 fi
 
 rsync -a --delete \
+  --exclude='.git' \
   "$SOURCE_DIR/" \
   "$BASE/"
+
+#################################
+# Clone des règles YARA signature-base
+#################################
+echo "[+] Clonage des règles YARA (Neo23x0/signature-base)"
+# Supprimer l'ancien dossier si présent (reinstall)
+rm -rf "$BASE/yara_rules/signature-base"
+git clone "$YARA_RULES_URL" "$BASE/yara_rules/signature-base"
+
+RULES_COUNT=$(find "$BASE/yara_rules/signature-base/yara" -name "*.yar" | wc -l)
+echo "[+] $RULES_COUNT fichiers de règles YARA téléchargés"
 
 #################################
 # Permissions sécurisées
@@ -116,6 +136,7 @@ chmod 750 "$BASE/mount" "$BASE/reports"
 echo ""
 echo "[✓] Installation terminée"
 echo "[✓] Station Blanche installée dans $BASE"
+echo "[✓] Règles YARA : $BASE/yara_rules/signature-base/yara/"
 echo "[✓] Script principal : $BASE/bin/station_blanche.py"
 echo ""
 echo "[i] Pour lancer depuis la session bureau :"
