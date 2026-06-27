@@ -25,8 +25,8 @@ fi
 BASE="/opt/station-blanche"
 REPO_URL="https://github.com/kuromasai/Station-blanche.git"
 YARA_RULES_URL="https://github.com/Neo23x0/signature-base.git"
+ELASTIC_RULES_URL="https://github.com/elastic/protections-artifacts.git"
 TMP_DIR=$(mktemp -d /tmp/station-blanche-install-XXXXXX)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Nettoyage du dossier temporaire à la fin quoi qu'il arrive
 cleanup() {
@@ -100,11 +100,25 @@ rsync -a --delete \
 # Clone des règles YARA signature-base
 #################################
 echo "[+] Clonage des règles YARA (Neo23x0/signature-base)"
+# Supprimer l'ancien dossier si présent (reinstall)
 rm -rf "$BASE/yara_rules/signature-base"
 git clone "$YARA_RULES_URL" "$BASE/yara_rules/signature-base"
 
 RULES_COUNT=$(find "$BASE/yara_rules/signature-base/yara" -name "*.yar" | wc -l)
-echo "[+] $RULES_COUNT fichiers de règles YARA téléchargés"
+echo "[+] $RULES_COUNT fichiers Neo23x0 téléchargés"
+
+#################################
+# Clone des règles YARA Elastic
+#################################
+echo "[+] Clonage des règles YARA (elastic/protections-artifacts)"
+rm -rf "$BASE/yara_rules/elastic-artifacts"
+git clone "$ELASTIC_RULES_URL" "$BASE/yara_rules/elastic-artifacts"
+
+ELASTIC_COUNT=$(find "$BASE/yara_rules/elastic-artifacts/yara/rules" -name "*.yar" | wc -l)
+echo "[+] $ELASTIC_COUNT fichiers Elastic téléchargés"
+
+TOTAL_COUNT=$(find "$BASE/yara_rules" -name "*.yar" | wc -l)
+echo "[+] Total règles YARA : $TOTAL_COUNT"
 
 #################################
 # Permissions sécurisées
@@ -133,39 +147,11 @@ chmod 700 "$BASE/logs" "$BASE/quarantine"
 chmod 750 "$BASE/mount" "$BASE/reports"
 
 #################################
-# Suppression du clone source
-#################################
-CLONE_DIR="$(dirname "$SCRIPT_DIR")"
-
-# Vérifie que c'est bien un clone git
-if [ -f "$CLONE_DIR/.git/config" ]; then
-  TARGET="$CLONE_DIR"
-elif [ -f "$SCRIPT_DIR/.git/config" ]; then
-  TARGET="$SCRIPT_DIR"
-else
-  TARGET=""
-fi
-
-if [ -n "$TARGET" ] && [ "$TARGET" != "$BASE" ]; then
-  # Sécurité : refuser les chemins critiques
-  case "$TARGET" in
-    /|/home|/opt|/root|/tmp|/usr|/etc|/var)
-      echo "[!] Chemin suspect ($TARGET), suppression ignorée"
-      ;;
-    *)
-      echo "[+] Suppression du clone source : $TARGET"
-      rm -rf "$TARGET"
-      ;;
-  esac
-else
-  echo "[i] Aucun clone source détecté à supprimer"
-fi
-
-#################################
 echo ""
 echo "[✓] Installation terminée"
 echo "[✓] Station Blanche installée dans $BASE"
-echo "[✓] Règles YARA : $BASE/yara_rules/signature-base/yara/"
+echo "[✓] Règles YARA Neo23x0 : $BASE/yara_rules/signature-base/yara/"
+echo "[✓] Règles YARA Elastic  : $BASE/yara_rules/elastic-artifacts/yara/rules/"
 echo "[✓] Script principal : $BASE/bin/station_blanche.py"
 echo ""
 echo "[i] Pour lancer depuis la session bureau :"
